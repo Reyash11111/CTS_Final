@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AIValidationCard from "../components/AIValidationCard";
 import { Activity, FileCheck2, Inbox, Plus, Timer } from 'lucide-react'
 
 import { api } from '../lib/api'

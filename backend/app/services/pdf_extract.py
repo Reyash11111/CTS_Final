@@ -17,10 +17,7 @@ Important:
 
 import re
 from pathlib import Path
-<<<<<<< HEAD
-=======
 from .hospital_parser import extract_hospital_pa
->>>>>>> origin/HARINI
 
 from .vocab import (
     COMORBIDITIES,
@@ -1101,19 +1098,6 @@ def extract_fields(
 # PUBLIC API
 # ============================================================
 
-<<<<<<< HEAD
-def extract_from_file(
-    path: str | Path,
-) -> dict:
-
-    text, pages = read_pdf(
-        str(path)
-    )
-
-    fields, unmatched, confidence = (
-        extract_fields(text)
-    )
-=======
 def extract_from_file(path: str | Path) -> dict:
 
     text, pages = read_pdf(str(path))
@@ -1189,7 +1173,6 @@ def extract_from_file(path: str | Path) -> dict:
     # =========================================================
 
     fields, unmatched, confidence = extract_fields(text)
->>>>>>> origin/HARINI
 
     return {
         "fields": fields,
@@ -1198,8 +1181,5 @@ def extract_from_file(path: str | Path) -> dict:
         "page_count": pages,
         "char_count": len(text),
         "raw_text": text[:20000],
-<<<<<<< HEAD
-=======
         "document_type": "LEGACY_PA",
->>>>>>> origin/HARINI
     }

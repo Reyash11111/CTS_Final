@@ -5,20 +5,27 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class SignupProvider(BaseModel):
+    full_name: str
+    organization_name: str
     email: EmailStr
-    password: str = Field(min_length=8)
-    full_name: str = Field(min_length=2)
-    organization_name: str = Field(min_length=2)
+    password: str
 
 
 class SignupPayer(BaseModel):
+    full_name: str
+    organization_name: str
     email: EmailStr
-    password: str = Field(min_length=8)
-    full_name: str = Field(min_length=2)
-    organization_name: str = Field(min_length=2)
+    password: str
     specialty: str
-    license_number: str | None = None
-    daily_capacity: int = Field(default=12, ge=1, le=100)
+    license_number: str
+    daily_capacity: int = 12
+
+
+class SignupAdmin(BaseModel):
+    full_name: str
+    organization_name: str
+    email: EmailStr
+    password: str
 
 
 class Login(BaseModel):
