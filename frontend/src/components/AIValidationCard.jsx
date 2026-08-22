@@ -4,12 +4,16 @@ import {
   FileWarning,
   Brain,
   ShieldAlert,
+  ShieldCheck,
   Clock3,
   Siren,
   ArrowUp,
   Minus,
   ArrowDown,
+  FilePlus2,
 } from "lucide-react";
+
+import { useNavigate } from "react-router-dom";
 
 /*
 |--------------------------------------------------------------------------
@@ -233,8 +237,15 @@ const PRIORITY_CONFIG = {
 | Main Component
 |--------------------------------------------------------------------------
 */
+export default function AIValidationCard({
+  validation,
+  requestId,
+}) {
+  const navigate = useNavigate();
 
-export default function AIValidationCard({ validation }) {
+  if (!validation) {
+    return null;
+  }
   if (!validation) {
     return null;
   }
@@ -243,23 +254,22 @@ export default function AIValidationCard({ validation }) {
   /*
    * Extract validation result
    */
-  const {
-    contextually_complete,
-    consistency_check,
-    missing_context = [],
-    inconsistencies = [],
-    documentation_needed = [],
-    reasoning,
-    human_review_required,
-    confidence = 0,
+const {
+  contextually_complete,
+  consistency_check,
+  missing_context = [],
+  inconsistencies = [],
+  documentation_needed = [],
+  reasoning,
+  human_review_required,
+  confidence = 0,
+  severity,
+  priority,
+  severity_score,
 
-    /*
-     * New fields supported from backend
-     */
-    severity,
-    priority,
-    severity_score,
-  } = validation;
+  // Critic Agent result
+  critic_agent,
+} = validation;
 
 
   /*
@@ -406,6 +416,85 @@ export default function AIValidationCard({ validation }) {
         )}
 
       </div>
+{/* ============================================================
+    CRITIC AGENT
+============================================================ */}
+
+{critic_agent && (
+  <div
+    className={`mb-5 rounded-xl border px-4 py-3 ${
+      critic_agent.status === "PASS"
+        ? "border-emerald-200 bg-emerald-50"
+        : critic_agent.status === "WARNING"
+        ? "border-amber-200 bg-amber-50"
+        : "border-red-200 bg-red-50"
+    }`}
+  >
+    <div className="flex items-start justify-between gap-4">
+
+      <div className="flex items-start gap-3">
+
+        <div
+          className={`mt-0.5 ${
+            critic_agent.status === "PASS"
+              ? "text-emerald-600"
+              : critic_agent.status === "WARNING"
+              ? "text-amber-600"
+              : "text-red-600"
+          }`}
+        >
+          {critic_agent.status === "PASS" ? (
+            <ShieldCheck size={20} />
+          ) : (
+            <ShieldAlert size={20} />
+          )}
+        </div>
+
+        <div>
+          <div className="text-[13px] font-semibold">
+            Critic Agent
+          </div>
+
+          <div className="mt-1 text-2xs text-ink-2">
+            {critic_agent.agent_working
+              ? "Primary validation agent output verified."
+              : "Primary validation agent output could not be verified."}
+          </div>
+
+          {critic_agent.reasoning && (
+            <div className="mt-1 text-2xs text-ink-3">
+              {critic_agent.reasoning}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      <div
+        className={`rounded-full px-2.5 py-1 text-2xs font-semibold ${
+          critic_agent.status === "PASS"
+            ? "bg-emerald-100 text-emerald-700"
+            : critic_agent.status === "WARNING"
+            ? "bg-amber-100 text-amber-700"
+            : "bg-red-100 text-red-700"
+        }`}
+      >
+        {critic_agent.status}
+      </div>
+
+    </div>
+
+    {Array.isArray(critic_agent.issues) &&
+      critic_agent.issues.length > 0 && (
+        <ul className="mt-3 ml-7 list-disc text-2xs text-ink-2">
+          {critic_agent.issues.map((issue, index) => (
+            <li key={index}>{issue}</li>
+          ))}
+        </ul>
+      )}
+
+  </div>
+)}
 
 
       {/* ============================================================
@@ -591,17 +680,36 @@ export default function AIValidationCard({ validation }) {
 
       {safeMissingContext.length > 0 && (
 
-        <div className="ai-section">
+  <div className="ai-section">
 
-          <div className="section-heading">
+    <div className="flex items-start justify-between gap-4">
 
-            <AlertTriangle size={18} />
+      <div className="section-heading">
 
-            <h3>
-              Missing Context
-            </h3>
+        <AlertTriangle size={18} />
 
-          </div>
+        <h3>
+          Missing Context
+        </h3>
+
+      </div>
+
+      <button
+        type="button"
+        onClick={() =>
+          navigate(
+            `/hospital/new?from=${encodeURIComponent(
+              requestId || ""
+            )}`
+          )
+        }
+        className="btn btn-ghost shrink-0"
+      >
+        <FilePlus2 size={14} />
+        Add Missing Context
+      </button>
+
+    </div>
 
           <ul>
             {safeMissingContext.map(

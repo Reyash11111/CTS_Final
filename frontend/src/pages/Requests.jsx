@@ -592,6 +592,7 @@ export function RequestDetail() {
 
         <AIValidationCard
           validation={agentValidation}
+          requestId={id}
         />
 
       )}

@@ -31,6 +31,7 @@ from ..services import ml, routing
 from ..services.pdf_extract import extract_from_file
 from ..services.pipeline import adjudicate, log
 from ..services import validation_agent as validation_agent_service
+from ..services import critic_agent as critic_agent_service
 from ..services.vocab import DIAGNOSIS_CODES
 
 
@@ -552,7 +553,90 @@ def _call_validation_agent(
         "human_review_required": human_required,
         "confidence": 0.60,
     }
+# ============================================================
+# CRITIC AGENT ADAPTER
+# ============================================================
 
+def _call_critic_agent(
+    features: dict,
+    validation_result: dict,
+    document_text: str = "",
+) -> dict:
+    """
+    Run the second agent against the output of the
+    primary validation agent.
+
+    The critic does NOT replace the validation agent.
+    It checks whether the validation agent produced a
+    structurally and logically valid result.
+    """
+
+    function = getattr(
+        critic_agent_service,
+        "run_critic_agent",
+        None,
+    )
+
+    if not callable(function):
+        return {
+            "status": "ERROR",
+            "agent_working": False,
+            "score": 0.0,
+            "issues": [
+                "Critic agent function is unavailable."
+            ],
+            "reasoning": (
+                "The primary validation agent result "
+                "could not be independently verified."
+            ),
+            "mode": "unavailable",
+        }
+
+    try:
+
+        result = function(
+            features=features,
+            validation_result=validation_result,
+            document_text=document_text,
+        )
+
+        if isinstance(result, dict):
+            return result
+
+        return {
+            "status": "ERROR",
+            "agent_working": False,
+            "score": 0.0,
+            "issues": [
+                "Critic agent returned an invalid result."
+            ],
+            "reasoning": (
+                "The critic agent did not return a dictionary."
+            ),
+            "mode": "error",
+        }
+
+    except Exception as exc:
+
+        print(
+            "[CRITIC AGENT ERROR]",
+            exc,
+        )
+
+        return {
+            "status": "ERROR",
+            "agent_working": False,
+            "score": 0.0,
+            "issues": [
+                "Critic agent could not verify the validation agent."
+            ],
+            "reasoning": (
+                "Independent verification of the "
+                "validation agent failed."
+            ),
+            "agent_error": str(exc),
+            "mode": "error",
+        }
 
 # ============================================================
 # DOCUMENT UPLOAD
@@ -919,7 +1003,22 @@ def create_request(
         }
 
     # --------------------------------------------------------
-    # 10. Add severity / priority
+    # 10. CRITIC AGENT
+    #
+    # The critic checks the output of the primary validation
+    # agent before the final human-review decision.
+    # --------------------------------------------------------
+
+    critic_result = _call_critic_agent(
+        features=features,
+        validation_result=validation_result,
+        document_text=document_text,
+    )
+
+    validation_result["critic_agent"] = critic_result
+
+    # --------------------------------------------------------
+    # 10b. Add severity / priority
     # --------------------------------------------------------
 
     validation_result = (
@@ -962,11 +1061,19 @@ def create_request(
         "documentation_needed"
     ) or []
 
+    critic_failed = (
+        validation_result
+        .get("critic_agent", {})
+        .get("agent_working")
+        is False
+    )
+
     human_review_required = bool(
         agent_requested_review
         or missing_context
         or inconsistencies
         or documentation_needed
+        or critic_failed
     )
 
     # --------------------------------------------------------
@@ -1641,15 +1748,54 @@ def _run_agent_for_request(
     # Existing validation
     # --------------------------------------------------------
 
-    if isinstance(
-        stored,
-        dict,
-    ):
+    if isinstance(stored, dict):
+
+        # ----------------------------------------------------
+        # Existing validation result
+        # ----------------------------------------------------
+
+        enriched = dict(stored)
+
+        # ----------------------------------------------------
+        # Run critic if this request does not already have
+        # a critic result.
+        # ----------------------------------------------------
+
+        if not isinstance(
+            enriched.get("critic_agent"),
+            dict,
+        ):
+
+            critic_result = _call_critic_agent(
+                features=features,
+                validation_result=enriched,
+                document_text="",
+            )
+
+            enriched[
+                "critic_agent"
+            ] = critic_result
+
+            # ------------------------------------------------
+            # If the critic cannot verify the primary agent,
+            # force human review.
+            # ------------------------------------------------
+
+            if (
+                critic_result.get(
+                    "agent_working"
+                )
+                is False
+            ):
+
+                enriched[
+                    "human_review_required"
+                ] = True
 
         enriched = (
             _apply_human_review_priority(
                 features,
-                stored,
+                enriched,
             )
         )
 
